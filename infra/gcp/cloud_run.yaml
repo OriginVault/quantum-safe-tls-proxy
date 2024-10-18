@@ -7,7 +7,7 @@ spec:
   template:
     spec:
       containers:
-        - image: gcr.io/YOUR_PROJECT_ID/quantum-safe-tls-proxy:latest
+        - image: gcr.io/${PROJECT_ID}/quantum-safe-tls-proxy:latest
           ports:
             - containerPort: 443
           env:
