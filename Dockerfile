@@ -36,7 +36,7 @@ RUN git clone https://github.com/open-quantum-safe/oqs-provider.git && \
 WORKDIR /app
 
 # Install Python dependencies
-COPY ../requirements.txt /app/
+COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
