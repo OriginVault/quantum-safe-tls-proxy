@@ -1,0 +1,32 @@
+app:
+  environment: "${ENVIRONMENT}"
+  debug: false
+
+proxy:
+  host: "0.0.0.0"
+  port: 443
+
+backend:
+  url: "${BACKEND_URL}"  # The full URL to the backend, including protocol and port
+  host: "${BACKEND_HOST}"  # The internal IP or hostname of the backend service
+  port: ${BACKEND_PORT}  # The port the backend service is listening on
+
+tls:
+  cert_file: "/etc/ssl/certs/tls/cert.pem"
+  key_file: "/etc/ssl/private/tls/key.pem"
+  ca_file: "/etc/ssl/certs/ca.pem"
+
+auth:
+  enable: true
+  token_secret: "${TOKEN_SECRET}"
+
+rate_limiter:
+  enabled: true
+  max_requests_per_minute: 60
+
+monitoring:
+  metrics_port: 9090
+
+renewal:
+  enable_auto_renewal: true
+  renewal_check_interval: 3600
