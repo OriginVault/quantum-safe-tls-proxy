@@ -47,4 +47,4 @@ EXPOSE 443
 EXPOSE 9090
 
 # Configure the entrypoint
-ENTRYPOINT ["./scripts/deploy_to_gcp.sh"]
+ENTRYPOINT ["./src/main.py"]
