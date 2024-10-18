@@ -1,146 +1,110 @@
-from oqs import Signature, KeyEncapsulation
+import oqs
+from key_management import load_key_pair_from_kms
 from utils.logger import get_logger
-from crypto.key_management import load_private_key
 
+# Initialize custom logger
 logger = get_logger(__name__)
 
-class QuantumSafeCrypto:
-    """
-    Handles post-quantum cryptographic operations using OQS.
-    """
-    
-    def __init__(self, algorithm="Dilithium3", kem_algorithm="Kyber512"):
+class QuantumEncryptionService:
+    def encrypt_aes_key_with_kyber(self, aes_key, key_name, kms_aes_key_name):
         """
-        Initializes the QuantumSafeCrypto class with the specified algorithms.
-        
-        Args:
-            algorithm (str): The post-quantum signature algorithm (e.g., "Dilithium3").
-            kem_algorithm (str): The key encapsulation mechanism (KEM) algorithm (e.g., "Kyber512").
-        """
-        self.algorithm = algorithm
-        self.kem_algorithm = kem_algorithm
-        self.signature_scheme = None
-        self.kem_scheme = None
-        self._initialize_algorithms()
-
-    def _initialize_algorithms(self):
-        """
-        Initializes the signature and KEM algorithms.
+        Encrypt the AES key using a quantum-safe Kyber public key.
+        :param aes_key: The AES key to encrypt (in bytes).
+        :param key_name: The KMS key resource name for retrieving the Kyber public key.
+        :param kms_aes_key_name: The KMS key resource name used to decrypt the AES key.
+        :return: A tuple containing the encrypted AES key (ciphertext) and encapsulated shared secret (both in bytes), or None on failure.
         """
         try:
-            self.signature_scheme = Signature(self.algorithm)
-            self.kem_scheme = KeyEncapsulation(self.kem_algorithm)
-            logger.info(f"Initialized post-quantum algorithms: {self.algorithm}, {self.kem_algorithm}")
-        except Exception as e:
-            logger.error(f"Failed to initialize algorithms: {self.algorithm}, {self.kem_algorithm} | {e}")
-            raise
+            # Load the Kyber public key from key management
+            public_key, _ = load_key_pair_from_kms(key_name, kms_aes_key_name)
 
-    def generate_keypair(self):
+            if not public_key:
+                raise ValueError("Failed to retrieve Kyber public key.")
+
+            # Use Kyber to encapsulate the secret (AES key)
+            with oqs.KeyEncapsulation('Kyber768') as kem:
+                # Perform the quantum-safe key encapsulation using the public key
+                ciphertext, shared_secret = kem.encap_secret(public_key)
+                # Encrypt the AES key using the shared secret from the Kyber encapsulation
+                encrypted_aes_key = bytes(a ^ b for a, b in zip(aes_key, shared_secret))
+
+                logger.info("AES key successfully encrypted using quantum-safe Kyber public key.")
+                return ciphertext, encrypted_aes_key
+        except Exception as e:
+            logger.error(f"Error encrypting AES key with Kyber: {str(e)}", exc_info=True)
+            return None, None
+
+    def decrypt_aes_key_with_kyber(self, encrypted_aes_key, key_name, kms_aes_key_name):
         """
-        Generates a key pair for the chosen signature scheme.
-        
-        Returns:
-            tuple: A tuple containing (public_key, private_key).
+        Decrypt the AES key using a quantum-safe Kyber private key.
+        :param encrypted_aes_key: The encrypted AES key to decrypt (in bytes).
+        :param key_name: The KMS key resource name for retrieving the Kyber private key.
+        :param kms_aes_key_name: The KMS key resource name used to decrypt the AES key.
+        :return: The decrypted AES key (in bytes), or None on failure.
         """
         try:
-            public_key, private_key = self.signature_scheme.generate_keypair()
-            logger.info(f"Generated key pair for algorithm {self.algorithm}")
-            return public_key, private_key
-        except Exception as e:
-            logger.error(f"Error generating key pair: {e}")
-            raise
+            # Load the Kyber private key from key management
+            _, private_key = load_key_pair_from_kms(key_name, kms_aes_key_name)
 
-    def sign_message(self, message, private_key_source, password=None):
+            if not private_key:
+                raise ValueError("Failed to retrieve Kyber private key.")
+
+            with oqs.KeyEncapsulation('Kyber768') as kem:
+                aes_key = kem.decap_secret(encrypted_aes_key, private_key)
+                logger.info("AES key successfully decrypted using quantum-safe Kyber private key.")
+                return aes_key
+        except Exception as e:
+            logger.error(f"Error decrypting AES key with Kyber: {str(e)}", exc_info=True)
+            return None
+
+    # Message Signing and Verification with Dilithium
+
+    def sign_message_with_dilithium(self, message, key_name, kms_aes_key_name):
         """
-        Signs a message using the private key loaded from the specified source.
-        
-        Args:
-            message (bytes): The message to sign.
-            private_key_source (str): The source from which to load the private key (e.g., file path).
-            password (str, optional): Password for decrypting the private key if needed.
-        
-        Returns:
-            bytes: The signature.
+        Sign a message using a quantum-safe Dilithium private key.
+        :param message: The message to sign (in bytes).
+        :param key_name: The KMS key resource name for retrieving the Dilithium private key.
+        :param kms_aes_key_name: The KMS key resource name used to decrypt the AES key.
+        :return: The signature (in bytes), or None on failure.
         """
         try:
-            private_key = load_private_key(private_key_source, password)
-            signature = self.signature_scheme.sign(message, private_key)
-            logger.info("Message successfully signed.")
-            return signature
-        except Exception as e:
-            logger.error(f"Error signing message: {e}")
-            raise
+            # Load the Dilithium private key from key management
+            _, private_key = load_key_pair_from_kms(key_name, kms_aes_key_name)
 
-    def verify_signature(self, message, signature, public_key):
+            if not private_key:
+                raise ValueError("Failed to retrieve Dilithium private key.")
+
+            with oqs.Signature('Dilithium3') as signer:
+                signature = signer.sign(message, private_key)
+                logger.info("Message successfully signed using Dilithium.")
+                return signature
+        except Exception as e:
+            logger.error(f"Error signing message with Dilithium: {str(e)}", exc_info=True)
+            return None
+
+    def verify_dilithium_signature(self, message, signature, key_name, kms_aes_key_name):
         """
-        Verifies a signature for a given message and public key.
-        
-        Args:
-            message (bytes): The original message.
-            signature (bytes): The signature to verify.
-            public_key (bytes): The public key used for verification.
-        
-        Returns:
-            bool: True if the signature is valid, False otherwise.
+        Verify a signature using a quantum-safe Dilithium public key.
+        :param message: The original message (in bytes).
+        :param signature: The signature to verify (in bytes).
+        :param key_name: The KMS key resource name for retrieving the Dilithium public key.
+        :param kms_aes_key_name: The KMS key resource name used to decrypt the AES key.
+        :return: True if the signature is valid, False otherwise.
         """
         try:
-            is_valid = self.signature_scheme.verify(message, signature, public_key)
-            logger.info("Signature verification result: " + ("valid" if is_valid else "invalid"))
-            return is_valid
-        except Exception as e:
-            logger.error(f"Error verifying signature: {e}")
-            raise
+            # Load the Dilithium public key from key management
+            public_key, _ = load_key_pair_from_kms(key_name, kms_aes_key_name)
 
-    def generate_kem_keypair(self):
-        """
-        Generates a key pair for the chosen KEM algorithm.
-        
-        Returns:
-            tuple: A tuple containing (public_key, private_key).
-        """
-        try:
-            public_key, private_key = self.kem_scheme.generate_keypair()
-            logger.info(f"Generated KEM key pair for algorithm {self.kem_algorithm}")
-            return public_key, private_key
-        except Exception as e:
-            logger.error(f"Error generating KEM key pair: {e}")
-            raise
+            if not public_key:
+                raise ValueError("Failed to retrieve Dilithium public key.")
 
-    def encapsulate(self, public_key):
-        """
-        Encapsulates a shared secret using the public key.
-        
-        Args:
-            public_key (bytes): The public key for encapsulation.
-        
-        Returns:
-            tuple: A tuple containing (ciphertext, shared_secret).
-        """
-        try:
-            ciphertext, shared_secret = self.kem_scheme.encapsulate(public_key)
-            logger.info("Encapsulation successful.")
-            return ciphertext, shared_secret
+            with oqs.Signature('Dilithium3') as verifier:
+                valid = verifier.verify(message, signature, public_key)
+                if valid:
+                    logger.info("Dilithium signature is valid.")
+                else:
+                    logger.warning("Dilithium signature verification failed.")
+                return valid
         except Exception as e:
-            logger.error(f"Error during encapsulation: {e}")
-            raise
-
-    def decapsulate(self, ciphertext, private_key_source, password=None):
-        """
-        Decapsulates the shared secret using the private key loaded from the specified source.
-        
-        Args:
-            ciphertext (bytes): The ciphertext containing the encapsulated secret.
-            private_key_source (str): The source from which to load the private key (e.g., file path).
-            password (str, optional): Password for decrypting the private key if needed.
-        
-        Returns:
-            bytes: The shared secret.
-        """
-        try:
-            private_key = load_private_key(private_key_source, password)
-            shared_secret = self.kem_scheme.decapsulate(ciphertext, private_key)
-            logger.info("Decapsulation successful.")
-            return shared_secret
-        except Exception as e:
-            logger.error(f"Error during decapsulation: {e}")
-            raise
+            logger.error(f"Error verifying Dilithium signature: {str(e)}", exc_info=True)
+            return False

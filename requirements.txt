@@ -1,0 +1,8 @@
+# Cryptography library for AES and other cryptographic operations
+cryptography>=3.4.7
+
+# Google Cloud KMS client for interacting with Google Cloud Key Management Service
+google-cloud-kms>=2.6.0
+
+# Additional dependencies for interfacing with oqs-openssl through Python bindings
+cffi>=1.14.6
