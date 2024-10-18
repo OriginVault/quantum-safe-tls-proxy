@@ -1,78 +1,106 @@
-import asyncio
+import os
+from services.tls_service import TLSService
+from config.config_loader import load_config
 from utils.logger import get_logger
-from tls_setup import create_tls_context
 
 logger = get_logger(__name__)
 
-class QuantumSafeProxy:
-    def __init__(self, host, port, backend_host, backend_port, cert_file, key_file, ca_file=None):
-        """
-        Initializes the quantum-safe proxy.
-        
-        Args:
-            host (str): Host address for the proxy to listen on.
-            port (int): Port number for the proxy to listen on.
-            backend_host (str): Host address for the backend server.
-            backend_port (int): Port number for the backend server.
-            cert_file (str): Path to the TLS certificate file.
-            key_file (str): Path to the private key file.
-            ca_file (str, optional): Path to the CA certificate file.
-        """
-        self.host = host
-        self.port = port
-        self.backend_host = backend_host
-        self.backend_port = backend_port
-        self.tls_context = create_tls_context(cert_file, key_file, ca_file)
+DEFAULT_CONFIG = {
+    'tls': {
+        'cert_file': 'config/tls/cert.pem',
+        'key_file': 'config/tls/key.pem',
+        'ca_file': None,
+        'use_hybrid': False,
+        'check_interval': 60
+    },
+    'quantum': {
+        'key_name': None,
+        'kms_aes_key_name': None
+    }
+}
 
-    async def handle_client(self, reader, writer):
-        """
-        Handles incoming client connections and forwards them to the backend.
-        
-        Args:
-            reader (asyncio.StreamReader): Reader for client input.
-            writer (asyncio.StreamWriter): Writer for sending responses.
-        """
-        peername = writer.get_extra_info('peername')
-        logger.info(f"Accepted connection from {peername}")
+def setup_tls_service():
+    """
+    Sets up the TLS service with the appropriate configuration.
 
-        try:
-            backend_reader, backend_writer = await asyncio.open_connection(
-                self.backend_host, self.backend_port, ssl=self.tls_context
-            )
+    Returns:
+        TLSService: An instance of the TLSService configured with the specified parameters.
+    """
+    try:
+        # Load configuration with fallback to default values
+        config = load_config() or {}
+        tls_config = config.get('tls', DEFAULT_CONFIG['tls'])
+        quantum_config = config.get('quantum', DEFAULT_CONFIG['quantum'])
 
-            async def forward_data(src_reader, dst_writer):
-                try:
-                    while True:
-                        data = await src_reader.read(4096)
-                        if not data:
-                            break
-                        dst_writer.write(data)
-                        await dst_writer.drain()
-                except Exception as e:
-                    logger.warning(f"Error during data forwarding: {e}")
-                finally:
-                    dst_writer.close()
+        # Validate required TLS parameters
+        cert_file = tls_config.get('cert_file')
+        key_file = tls_config.get('key_file')
+        if not os.path.isfile(cert_file) or not os.path.isfile(key_file):
+            logger.error(f"Missing or invalid TLS certificate/key file: cert_file={cert_file}, key_file={key_file}")
+            raise FileNotFoundError("TLS certificate or key file is not found or accessible.")
 
-            await asyncio.gather(
-                forward_data(reader, backend_writer),
-                forward_data(backend_reader, writer)
-            )
-        except Exception as e:
-            logger.error(f"Error handling client {peername}: {e}")
-        finally:
-            writer.close()
-            await writer.wait_closed()
-            logger.info(f"Connection with {peername} closed.")
+        # Extract parameters with fallbacks
+        ca_file = tls_config.get('ca_file', DEFAULT_CONFIG['tls']['ca_file'])
+        use_hybrid = tls_config.get('use_hybrid', DEFAULT_CONFIG['tls']['use_hybrid'])
+        check_interval = tls_config.get('check_interval', DEFAULT_CONFIG['tls']['check_interval'])
+        key_name = quantum_config.get('key_name', DEFAULT_CONFIG['quantum']['key_name'])
+        kms_aes_key_name = quantum_config.get('kms_aes_key_name', DEFAULT_CONFIG['quantum']['kms_aes_key_name'])
 
-    async def start(self):
-        """
-        Starts the quantum-safe TLS proxy server.
-        """
-        server = await asyncio.start_server(self.handle_client, self.host, self.port, ssl=self.tls_context)
-        logger.info(f"Quantum-safe TLS proxy running on {self.host}:{self.port}")
-        
-        try:
-            async with server:
-                await server.serve_forever()
-        except asyncio.CancelledError:
-            logger.info("Server shutdown initiated.")
+        # Log the configuration being used (do not log sensitive data)
+        logger.info(f"Setting up TLS service with cert_file: {cert_file}, key_file: {key_file}, "
+                    f"ca_file: {ca_file}, use_hybrid: {use_hybrid}, check_interval: {check_interval}")
+
+        # Initialize the TLS service
+        tls_service = TLSService(
+            cert_file=cert_file,
+            key_file=key_file,
+            ca_file=ca_file,
+            use_hybrid=use_hybrid,
+            check_interval=check_interval,
+            key_name=key_name,
+            kms_aes_key_name=kms_aes_key_name
+        )
+
+        logger.info("TLS service setup completed successfully.")
+        return tls_service
+
+    except FileNotFoundError as fnf_error:
+        logger.critical(f"TLS setup failed due to missing file: {fnf_error}")
+        raise
+    except Exception as e:
+        logger.error(f"Failed to set up TLS service: {e}", exc_info=True)
+        raise
+
+def get_tls_context():
+    """
+    Gets the TLS context from the configured TLS service.
+
+    Returns:
+        ssl.SSLContext: The configured TLS context.
+    """
+    try:
+        # Set up the TLS service
+        tls_service = setup_tls_service()
+
+        # Retrieve the TLS context
+        tls_context = tls_service.get_tls_context()
+        logger.info("TLS context retrieved successfully.")
+        return tls_context
+
+    except Exception as e:
+        logger.error(f"Error getting TLS context: {e}", exc_info=True)
+        raise
+
+def dynamic_reload_config():
+    """
+    Dynamically reloads the TLS configuration.
+    Useful for situations where configuration changes need to be applied without restarting the service.
+    """
+    try:
+        logger.info("Attempting to dynamically reload TLS configuration.")
+        tls_service = setup_tls_service()
+        logger.info("TLS configuration dynamically reloaded successfully.")
+        return tls_service
+    except Exception as e:
+        logger.error(f"Failed to dynamically reload TLS configuration: {e}", exc_info=True)
+        return None

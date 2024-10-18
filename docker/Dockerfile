@@ -23,16 +23,17 @@ RUN apt-get update && \
 # Install Prometheus client library
 RUN pip install prometheus_client
 
-# Clone, build, and install liboqs
-RUN git clone --recursive https://github.com/open-quantum-safe/liboqs.git /liboqs && \
-    cd /liboqs && \
-    cmake -DCMAKE_INSTALL_PREFIX=/usr/local -DOQS_USE_OPENSSL=ON . && \
+# Build and install OpenSSL from source
+RUN git clone https://github.com/openssl/openssl.git && \
+    cd openssl && \
+    git checkout openssl-3.0.0 && \
+    ./config && \
     make -j$(nproc) && \
     make install
 
-# Clone, build, and install oqs-openssl
-RUN git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/open-quantum-safe/openssl.git /openssl && \
-    cd /openssl && \
+# Clone and build oqs-openssl
+RUN git clone --branch openssl-3.0.0 https://github.com/open-quantum-safe/oqs-openssl.git && \
+    cd oqs-openssl && \
     ./config && \
     make -j$(nproc) && \
     make install
