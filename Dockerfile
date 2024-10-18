@@ -47,4 +47,4 @@ EXPOSE 443
 EXPOSE 9090
 
 # Configure the entrypoint
-ENTRYPOINT ["./ci/scripts/build_and_deploy.sh"]
+ENTRYPOINT ["./scripts/deploy_to_gcp.sh"]
