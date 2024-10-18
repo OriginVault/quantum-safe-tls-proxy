@@ -4,7 +4,6 @@ FROM python:3.9-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV TOKEN_SECRET=your_randomly_generated_secret_key_here
 
 # Install system dependencies
 RUN apt-get update && \
@@ -36,18 +35,22 @@ RUN git clone https://github.com/open-quantum-safe/oqs-provider.git && \
 # Set the working directory
 WORKDIR /app
 
-# Install Python dependencies
+# Copy the requirements file and install Python dependencies
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
 COPY . /app
 
-RUN export $(cat /app/.env | xargs)
+# Set environment variables from .env file
+COPY .env /app/.env
 
-# Expose ports
+# Export environment variables from the .env file
+RUN export $(cat /app/.env | xargs) && echo "Environment variables loaded"
+
+# Expose the required ports
 EXPOSE 443
 EXPOSE 9090
 
-# Configure the entrypoint
-ENTRYPOINT ["./src/main.py"]
+# Set the command to run your application
+CMD ["python", "./src/main.py"]

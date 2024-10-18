@@ -1,20 +1,23 @@
+version: '3.8'
+
 services:
   quantum-safe-tls-proxy:
     build:
       context: .
       dockerfile: Dockerfile
-    env_file:
-      - .env  # Load environment variables from the .env file
     environment:
+      # Load environment variables from the .env file
       - TOKEN_SECRET=${TOKEN_SECRET}
-      - BACKEND_URL=${BACKEND_URL}
-      - BACKEND_HOST=${BACKEND_HOST}
-      - BACKEND_PORT=${BACKEND_PORT}
+      - PUBLIC_API_URL=${PUBLIC_API_URL}
+      - PUBLIC_PORT=${PUBLIC_PORT}
+      - INTERNAL_API_URL=${INTERNAL_API_URL}
+      - INTERNAL_PORT=${INTERNAL_PORT}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - AUTH_SERVICE_PORT=${AUTH_SERVICE_PORT}
     ports:
       - "443:443"
       - "9090:9090"
     volumes:
-      - ./src:/app/src  # Mount the source code to allow live changes if needed
-      - ./tls/certs:/etc/ssl/certs  # Mount the TLS certificates if you want to use local certs
-    command: ["python", "src/main.py"]  # Override the ENTRYPOINT to run the main Python script
-
+      - .:/app
+    env_file:
+      - .env
