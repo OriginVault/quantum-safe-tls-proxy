@@ -109,3 +109,5 @@ ci/
 # Ignore any configuration backups or custom temporary files
 config/*.bak
 scripts/*.bak
+
+config/nginx/nginx.conf

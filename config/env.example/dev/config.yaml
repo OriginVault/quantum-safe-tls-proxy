@@ -1,0 +1,32 @@
+app:
+  environment: "development"
+  debug: true
+
+proxy:
+  host: "0.0.0.0"
+  port: 8443
+
+backend:
+  url: "http://backend-dev.example.com"
+  host: "backend-dev.example.com"
+  port: 8080
+
+tls:
+  cert_file: "tls/cert.pem"
+  key_file: "tls/key.pem"
+  ca_file: "tls/ca.pem"
+
+auth:
+  enable: true
+  token_secret: "super_secret_key"
+
+rate_limiter:
+  enabled: true
+  max_requests_per_minute: 60
+
+monitoring:
+  metrics_port: 9090
+
+renewal:
+  enable_auto_renewal: true
+  renewal_check_interval: 3600
