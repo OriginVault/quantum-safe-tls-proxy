@@ -4,6 +4,7 @@ FROM python:3.9-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV TOKEN_SECRET=your_randomly_generated_secret_key_here
 
 # Install system dependencies
 RUN apt-get update && \
@@ -41,6 +42,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
 COPY . /app
+
+RUN export $(cat /app/.env | xargs)
 
 # Expose ports
 EXPOSE 443

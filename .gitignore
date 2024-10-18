@@ -46,7 +46,6 @@ coverage.xml
 
 # Environment variables file
 .env
-.env.*
 
 # Pyre type checker
 .pyre/
@@ -109,5 +108,3 @@ ci/
 # Ignore any configuration backups or custom temporary files
 config/*.bak
 scripts/*.bak
-
-config/nginx/nginx.conf
