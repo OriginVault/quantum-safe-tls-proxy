@@ -7,9 +7,9 @@ proxy:
   port: 443
 
 backend:
-  url: "${BACKEND_URL}"  # The full URL to the backend, including protocol and port
-  host: "${BACKEND_HOST}"  # The internal IP or hostname of the backend service
-  port: ${BACKEND_PORT}  # The port the backend service is listening on
+  url: "${INTERNAL_URL}"  # The full URL to the backend, including protocol and port
+  host: "${INTERNAL_HOST}"  # The internal IP or hostname of the backend service
+  port: ${INTERNAL_PORT}  # The port the backend service is listening on
 
 tls:
   cert_file: "/etc/ssl/certs/tls/cert.pem"
