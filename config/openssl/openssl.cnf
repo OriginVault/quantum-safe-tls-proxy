@@ -1,1 +1,27 @@
-# Placeholder for openssl.cnf
+[req]
+distinguished_name = req_distinguished_name
+prompt = no
+default_bits = 2048
+default_md = sha256
+req_extensions = req_ext
+x509_extensions = v3_ca
+
+[req_distinguished_name]
+C = US
+ST = California
+L = San Francisco
+O = Quantum Safe Proxy
+OU = Security
+CN = localhost
+
+[req_ext]
+subjectAltName = @alt_names
+
+[v3_ca]
+subjectAltName = @alt_names
+keyUsage = critical, digitalSignature, keyEncipherment
+basicConstraints = critical, CA:TRUE
+
+[alt_names]
+DNS.1 = localhost
+DNS.2 = example.com
