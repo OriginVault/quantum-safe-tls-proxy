@@ -1,0 +1,56 @@
+# ECS deployment configuration for the proxy service
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  ECSCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      ClusterName: 'QuantumSafeTLSProxyCluster'
+
+  ProxyTaskDefinition:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      Family: 'QuantumSafeProxyTask'
+      NetworkMode: 'awsvpc'
+      RequiresCompatibilities:
+        - 'FARGATE'
+      Cpu: '512'
+      Memory: '1024'
+      ContainerDefinitions:
+        - Name: 'proxy-container'
+          Image: 'your-docker-repo/quantum-safe-tls-proxy:latest'
+          PortMappings:
+            - ContainerPort: 443
+              Protocol: 'tcp'
+          LogConfiguration:
+            LogDriver: 'awslogs'
+            Options:
+              awslogs-group: '/ecs/QuantumSafeProxyLogs'
+              awslogs-region: 'us-west-2'
+              awslogs-stream-prefix: 'ecs'
+
+  ProxyService:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      Cluster: !Ref 'ECSCluster'
+      DesiredCount: 2
+      LaunchType: 'FARGATE'
+      TaskDefinition: !Ref 'ProxyTaskDefinition'
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - 'subnet-xxxxxxxx'
+            - 'subnet-yyyyyyyy'
+          SecurityGroups:
+            - !Ref 'ProxySecurityGroup'
+          AssignPublicIp: 'ENABLED'
+
+  ProxySecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'Allow TLS traffic to the proxy service'
+      VpcId: 'vpc-xxxxxxxx'
+      SecurityGroupIngress:
+        - IpProtocol: 'tcp'
+          FromPort: 443
+          ToPort: 443
+          CidrIp: '0.0.0.0/0'

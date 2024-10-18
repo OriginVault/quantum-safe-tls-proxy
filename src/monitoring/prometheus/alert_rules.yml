@@ -1,0 +1,11 @@
+groups:
+- name: proxy_alerts
+  rules:
+  - alert: HighErrorRate
+    annotations:
+      description: More than 5 errors per minute observed in the proxy
+      summary: High error rate detected
+    expr: rate(proxy_errors_total[1m]) > 5
+    for: 1m
+    labels:
+      severity: critical

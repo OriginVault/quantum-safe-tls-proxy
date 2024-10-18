@@ -1,0 +1,37 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Quantum-Safe Proxy Dashboard",
+    "tags": [
+      "proxy",
+      "metrics"
+    ],
+    "timezone": "browser",
+    "panels": [
+      {
+        "type": "graph",
+        "title": "Request Rate",
+        "targets": [
+          {
+            "expr": "rate(proxy_requests_total[1m])",
+            "legendFormat": "requests",
+            "refId": "A"
+          }
+        ],
+        "datasource": "Prometheus"
+      },
+      {
+        "type": "graph",
+        "title": "Rate Limiting Rejections",
+        "targets": [
+          {
+            "expr": "rate(proxy_rate_limited_total[1m])",
+            "legendFormat": "rejections",
+            "refId": "B"
+          }
+        ],
+        "datasource": "Prometheus"
+      }
+    ]
+  }
+}

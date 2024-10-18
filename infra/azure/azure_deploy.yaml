@@ -1,0 +1,64 @@
+# Azure Resource Manager template for deploying the proxy service
+$schema: "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"
+contentVersion: "1.0.0.0"
+resources:
+  - type: "Microsoft.ContainerService/managedClusters"
+    apiVersion: "2021-03-01"
+    name: "QuantumSafeTLSProxyAKS"
+    location: "[resourceGroup().location]"
+    properties:
+      dnsPrefix: "quantumsafetlsproxy"
+      kubernetesVersion: "1.21.2"
+      agentPoolProfiles:
+        - name: "agentpool"
+          count: 2
+          vmSize: "Standard_DS2_v2"
+          osType: "Linux"
+          mode: "System"
+      linuxProfile:
+        adminUsername: "aksuser"
+        ssh:
+          publicKeys:
+            - keyData: "[parameters('sshPublicKey')]"
+      networkProfile:
+        networkPlugin: "azure"
+        networkPolicy: "calico"
+
+  - type: "Microsoft.Network/applicationGateways"
+    apiVersion: "2021-02-01"
+    name: "TLSProxyAppGateway"
+    location: "[resourceGroup().location]"
+    properties:
+      sku:
+        name: "Standard_v2"
+        tier: "Standard_v2"
+        capacity: 2
+      gatewayIPConfigurations:
+        - name: "appGatewayIpConfig"
+          properties:
+            subnet:
+              id: "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'myVNet', 'mySubnet')]"
+      frontendIPConfigurations:
+        - name: "frontendIpConfig"
+          properties:
+            publicIPAddress:
+              id: "[resourceId('Microsoft.Network/publicIPAddresses', 'myPublicIp')]"
+      frontendPorts:
+        - name: "httpsPort"
+          properties:
+            port: 443
+      sslCertificates:
+        - name: "mySSLCert"
+          properties:
+            data: "[parameters('sslCertificateData')]"
+            password: "[parameters('sslCertificatePassword')]"
+      httpListeners:
+        - name: "httpsListener"
+          properties:
+            frontendIPConfiguration:
+              id: "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', 'TLSProxyAppGateway', 'frontendIpConfig')]"
+            frontendPort:
+              id: "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', 'TLSProxyAppGateway', 'httpsPort')]"
+            protocol: "Https"
+            sslCertificate:
+              id: "[resourceId('Microsoft.Network/applicationGateways/sslCertificates', 'TLSProxyAppGateway', 'mySSLCert')]"
