@@ -5,7 +5,7 @@ FROM python:3.9-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies, including Nginx
+# Install system dependencies including Nginx
 RUN apt-get update && \
     apt-get install -y \
     libssl-dev \
@@ -16,9 +16,6 @@ RUN apt-get update && \
     nginx && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-# Print a message for debugging
-RUN echo "System dependencies, including Nginx, have been installed."
 
 # Build and install liboqs
 RUN git clone --recursive https://github.com/open-quantum-safe/liboqs.git && \
@@ -36,9 +33,6 @@ RUN git clone https://github.com/open-quantum-safe/oqs-provider.git && \
     cmake --build _build && \
     cmake --install _build
 
-# Print a message for debugging
-RUN echo "liboqs and oqs-provider have been installed."
-
 # Set the working directory
 WORKDIR /app
 
@@ -46,18 +40,19 @@ WORKDIR /app
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the Nginx configuration file to the container
+COPY config/nginx/nginx.conf /etc/nginx/nginx.conf
+
 # Copy the application code
 COPY . /app
 
-# Copy the Nginx configuration file to the appropriate location
-COPY config/nginx/nginx.conf /etc/nginx/nginx.conf
-
-# Print a message for debugging
-RUN echo "Nginx configuration has been copied."
+# Make sure the Nginx logs directory is writable
+RUN mkdir -p /var/log/nginx && \
+    chmod -R 755 /var/log/nginx
 
 # Expose the required ports
 EXPOSE 443
 EXPOSE 9090
 
-# Set the command to start Nginx and run the Python app
-CMD ["sh", "-c", "echo Starting Nginx... && nginx -g 'daemon off;' && echo Nginx started && python ./src/main.py"]
+# Run Nginx and the Python application together
+CMD ["sh", "-c", "echo 'Starting Nginx...' && nginx -g 'daemon off;' & echo 'Starting Python app...' && python ./src/main.py"]
