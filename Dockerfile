@@ -42,12 +42,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application code
 COPY . /app
 
-ARG ENV_FILE=".env"
-COPY ${ENV_FILE} /app/.env
-
-# Export environment variables from the .env file
-RUN export $(cat /app/.env | xargs) && echo "Environment variables loaded"
-
 # Expose the required ports
 EXPOSE 443
 EXPOSE 9090
