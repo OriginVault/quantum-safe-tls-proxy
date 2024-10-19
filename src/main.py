@@ -18,6 +18,7 @@ from services.certificate_manager import CertificateManager
 from services.tls_service import TLSService
 from workers.async_worker import AsyncWorker
 from utils.error_handler import handle_exception
+from tls_communication import get_tls_certificates_from_service
 
 # Load configuration
 def load_config():
@@ -28,20 +29,35 @@ def load_config():
     return config
 
 def initialize_services(config):
-    # Initialize TLS setup
-    tls_setup = TLSSetup(
-        cert_file=config["tls"]["cert_file"],
-        key_file=config["tls"]["key_file"],
-        ca_file=config["tls"]["ca_file"]
-    )
-    tls_setup.configure_tls()
+    # Retrieve public and internal service URLs from the environment variables
+    public_service_url = os.getenv("PUBLIC_API_URL")
+    internal_service_url = os.getenv("INTERNAL_API_URL")
 
-    # Initialize key management
-    key_manager = KeyManager()
-    key_manager.load_keys()
+    if not public_service_url or not internal_service_url:
+        raise ValueError("Both PUBLIC_API_URL and INTERNAL_API_URL must be set in environment variables")
 
-    # Initialize backend service communication
-    backend_service = BackendService(config["backend"]["url"])
+    # Initialize backend service communication for public and internal services
+    public_backend_service = BackendService(public_service_url)
+    internal_backend_service = BackendService(internal_service_url)
+
+    # Retrieve TLS certificates from the TLS Communication Service
+    try:
+        tls_cert_response = get_tls_certificates_from_service(os.getenv("TLS_COMMUNICATION_SERVICE_URL"))
+        cert_file_content = tls_cert_response["cert_file"]
+        key_file_content = tls_cert_response["key_file"]
+        ca_file_content = tls_cert_response.get("ca_file")
+
+        # Initialize TLS setup with retrieved certificates
+        tls_setup = TLSSetup(
+            cert_file=cert_file_content,
+            key_file=key_file_content,
+            ca_file=ca_file_content
+        )
+        tls_setup.configure_tls()
+
+    except Exception as e:
+        logging.error(f"Failed to initialize TLS setup: {e}")
+        raise
 
     # Initialize TLS service for managing certificate lifecycle
     tls_service = TLSService(tls_setup)
@@ -59,26 +75,43 @@ def initialize_services(config):
     # Initialize health checks
     health_check = HealthCheck()
 
-    return (tls_setup, key_manager, backend_service, tls_service,
+    return (tls_setup, public_backend_service, internal_backend_service, tls_service,
             cert_manager, quantum_handler, auth_handler,
             rate_limiter, health_check)
 
-async def start_proxy(config):
+async def wait_for_tls_updates(tls_setup):
     """
-    Starts the QuantumSafeProxy.
+    Listens for incoming connections from the TLS Communication Service
+    and dynamically updates the TLS configuration.
+    """
+    try:
+        # This is where the server listens for incoming connections
+        # You could use any preferred method to establish this connection
+        # For now, this is a placeholder for listening and processing the incoming updates
+        logging.info("Waiting for incoming TLS certificate updates...")
+        while True:
+            # Simulate waiting for an update; replace with actual listening logic
+            await asyncio.sleep(60)  # Periodically check for updates
+            # If an update is received, you could update the TLS configuration like this:
+            tls_setup.configure_tls()
+            logging.info("TLS configuration updated successfully.")
+    except Exception as e:
+        logging.error(f"Error while waiting for TLS updates: {e}")
+
+async def start_proxy(config, tls_setup, public_backend_service, internal_backend_service):
+    """
+    Starts the QuantumSafeProxy and listens for incoming TLS updates.
     """
     proxy = QuantumSafeProxy(
         host=config["proxy"]["host"],
-        port=config["proxy"]["port"],
-        backend_host=config["backend"]["host"],
-        backend_port=config["backend"]["port"],
-        cert_file=config["tls"]["cert_file"],
-        key_file=config["tls"]["key_file"],
-        ca_file=config["tls"].get("ca_file", None)
+        port=config["proxy"]["port"]
     )
 
-    # Start the proxy server
-    await proxy.start()
+    # Start the proxy server and TLS update listener concurrently
+    await asyncio.gather(
+        proxy.start(),
+        wait_for_tls_updates(tls_setup)
+    )
 
 def main():
     try:
@@ -93,16 +126,17 @@ def main():
         start_metrics_server(config["monitoring"]["metrics_port"])
 
         # Initialize services
-        (tls_service,
-         cert_manager) = initialize_services(config)
+        (tls_setup, public_backend_service, internal_backend_service, tls_service,
+         cert_manager, quantum_handler, auth_handler, rate_limiter,
+         health_check) = initialize_services(config)
 
         # Optionally enable automatic certificate renewal
         if config["renewal"]["enable_auto_renewal"]:
             renewer = AsyncWorker(cert_manager, tls_service, config["renewal"]["renewal_check_interval"])
             renewer.start()
 
-        # Start the proxy
-        asyncio.run(start_proxy(config))
+        # Start the proxy and wait for TLS updates
+        asyncio.run(start_proxy(config, tls_setup, public_backend_service, internal_backend_service))
 
     except Exception as e:
         handle_exception(e)
