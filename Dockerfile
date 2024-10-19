@@ -42,8 +42,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application code
 COPY . /app
 
-# Set environment variables from .env file
-COPY .env /app/.env
+ARG ENV_FILE=".env"
+COPY ${ENV_FILE} /app/.env
 
 # Export environment variables from the .env file
 RUN export $(cat /app/.env | xargs) && echo "Environment variables loaded"
