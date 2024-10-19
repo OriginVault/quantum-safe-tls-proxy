@@ -63,8 +63,7 @@ def initialize_services(config):
             cert_manager, quantum_handler, auth_handler,
             rate_limiter, health_check)
 
-async def start_proxy(config, tls_setup, backend_service, quantum_handler,
-                      auth_handler, rate_limiter, health_check):
+async def start_proxy(config):
     """
     Starts the QuantumSafeProxy.
     """
@@ -94,9 +93,8 @@ def main():
         start_metrics_server(config["monitoring"]["metrics_port"])
 
         # Initialize services
-        (tls_setup, key_manager, backend_service, tls_service,
-         cert_manager, quantum_handler, auth_handler, rate_limiter,
-         health_check) = initialize_services(config)
+        (tls_service,
+         cert_manager) = initialize_services(config)
 
         # Optionally enable automatic certificate renewal
         if config["renewal"]["enable_auto_renewal"]:
@@ -104,8 +102,7 @@ def main():
             renewer.start()
 
         # Start the proxy
-        asyncio.run(start_proxy(config, tls_setup, backend_service, quantum_handler,
-                                auth_handler, rate_limiter, health_check))
+        asyncio.run(start_proxy(config))
 
     except Exception as e:
         handle_exception(e)

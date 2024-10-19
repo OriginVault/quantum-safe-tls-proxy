@@ -5,14 +5,15 @@ FROM python:3.9-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies
+# Install system dependencies including Nginx
 RUN apt-get update && \
     apt-get install -y \
     libssl-dev \
     curl \
     build-essential \
     cmake \
-    git && \
+    git \
+    nginx && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -39,12 +40,19 @@ WORKDIR /app
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy the Nginx configuration file to the container
+COPY config/nginx/nginx.conf /etc/nginx/nginx.conf
+
 # Copy the application code
 COPY . /app
+
+# Make sure the Nginx logs directory is writable
+RUN mkdir -p /var/log/nginx && \
+    chmod -R 755 /var/log/nginx
 
 # Expose the required ports
 EXPOSE 443
 EXPOSE 9090
 
-# Set the command to run your application
-CMD ["python", "./src/main.py"]
+# Run Nginx and the Python application together
+CMD ["sh", "-c", "echo 'Starting Nginx...' && nginx -g 'daemon off;' & echo 'Starting Python app...' && python ./src/main.py"]
