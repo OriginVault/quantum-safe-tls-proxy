@@ -1,0 +1,16 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: quantum-safe-tls-proxy
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/${PROJECT_ID}/quantum-safe-tls-proxy:latest
+          ports:
+            - containerPort: 443
+          resources:
+            limits:
+              memory: "512Mi"
+              cpu: "1"

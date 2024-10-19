@@ -6,10 +6,15 @@ proxy:
   host: "0.0.0.0"
   port: 443
 
-backend:
-  url: "${INTERNAL_URL}"  # The full URL to the backend, including protocol and port
+internal_backend:
+  url: "${INTERNAL_API_URL}"  # The full URL to the backend, including protocol and port
   host: "${INTERNAL_HOST}"  # The internal IP or hostname of the backend service
   port: ${INTERNAL_PORT}  # The port the backend service is listening on
+
+internal_backend:
+  url: "${PUBLIC_API_URL}"  # The full URL to the backend, including protocol and port
+  host: "${PUBLIC_HOST}"  # The public IP or hostname of the backend service
+  port: ${PUBLIC_PORT}  # The port the backend service is listening on
 
 tls:
   cert_file: "/etc/ssl/certs/tls/cert.pem"
