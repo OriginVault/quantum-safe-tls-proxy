@@ -54,5 +54,6 @@ RUN mkdir -p /var/log/nginx && \
 EXPOSE 443
 EXPOSE 9090
 
+
 # Run Nginx and the Python application together
 CMD ["sh", "-c", "echo 'Starting Nginx...' && nginx -g 'daemon off;' & echo 'Starting Python app...' && python ./src/main.py"]
